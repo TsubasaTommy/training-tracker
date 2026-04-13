@@ -21,7 +21,6 @@
   import { getSetting, setSetting } from "../lib/db/settings";
   import {
     classifyTier,
-    lookupStandard,
     TIER_COLOR,
     TIER_LABEL,
     type StrengthTier,
@@ -133,10 +132,13 @@
     if (!bwForRatio) return [];
     const rows: StandardRow[] = [];
     for (const st of stats) {
-      const std = lookupStandard(st.name);
-      if (!std || st.maxOneRm <= 0) continue;
+      if (st.maxOneRm <= 0) continue;
+      // 種目自身に紐づいた基準値を引く (種目マスタで設定)
+      const exObj = exercises.find((e) => e.id === st.exerciseId);
+      const thresholds =
+        sex === "male" ? exObj?.standards_male : exObj?.standards_female;
+      if (!thresholds) continue;
       const ratio = st.maxOneRm / bwForRatio;
-      const thresholds = std[sex];
       rows.push({
         name: st.name,
         oneRm: st.maxOneRm,
@@ -283,7 +285,7 @@
       </div>
     {:else if standardRows.length === 0}
       <div class="py-8 text-center text-sm text-slate-400">
-        対象種目 (ベンチプレス・スクワット・デッドリフト・ショルダープレス) の記録がありません。
+        基準値が設定された種目の記録がありません。種目マスタで基準値を設定してください。
       </div>
     {:else}
       <div class="flex flex-col gap-3">

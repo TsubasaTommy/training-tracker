@@ -1,5 +1,5 @@
 import { db } from "./client";
-import type { Exercise, MuscleGroup } from "../types";
+import type { Exercise, MuscleGroup, ThresholdSet } from "../types";
 
 const MUSCLE_ORDER: MuscleGroup[] = [
   "chest",
@@ -34,29 +34,37 @@ export async function getExercise(id: number): Promise<Exercise | null> {
   return (await db.exercises.get(id)) ?? null;
 }
 
-export async function createExercise(input: {
+export interface ExerciseInput {
   name: string;
   muscle_group: MuscleGroup;
   uses_weight: boolean;
-}): Promise<number> {
+  standards_male?: ThresholdSet | null;
+  standards_female?: ThresholdSet | null;
+}
+
+export async function createExercise(input: ExerciseInput): Promise<number> {
   const id = await db.exercises.add({
     name: input.name.trim(),
     muscle_group: input.muscle_group,
     uses_weight: input.uses_weight ? 1 : 0,
     archived: 0,
     created_at: new Date().toISOString(),
+    standards_male: input.standards_male ?? null,
+    standards_female: input.standards_female ?? null,
   } as Exercise);
   return id as number;
 }
 
 export async function updateExercise(
   id: number,
-  input: { name: string; muscle_group: MuscleGroup; uses_weight: boolean }
+  input: ExerciseInput
 ): Promise<void> {
   await db.exercises.update(id, {
     name: input.name.trim(),
     muscle_group: input.muscle_group,
     uses_weight: input.uses_weight ? 1 : 0,
+    standards_male: input.standards_male ?? null,
+    standards_female: input.standards_female ?? null,
   });
 }
 

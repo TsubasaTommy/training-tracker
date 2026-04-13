@@ -20,6 +20,13 @@ export const MUSCLE_GROUPS: { value: MuscleGroup; label: string }[] = [
 export const muscleLabel = (g: MuscleGroup): string =>
   MUSCLE_GROUPS.find((m) => m.value === g)?.label ?? g;
 
+export interface ThresholdSet {
+  novice: number;
+  intermediate: number;
+  advanced: number;
+  elite: number;
+}
+
 export interface Exercise {
   id: number;
   name: string;
@@ -27,6 +34,9 @@ export interface Exercise {
   uses_weight: number; // 0 | 1
   archived: number; // 0 | 1
   created_at: string;
+  /** Strength Standards 用しきい値 (1RM ÷ 体重)。null のときダッシュボードで筋力比を表示しない */
+  standards_male?: ThresholdSet | null;
+  standards_female?: ThresholdSet | null;
 }
 
 export interface WorkoutSet {
