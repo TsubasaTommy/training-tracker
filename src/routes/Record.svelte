@@ -16,6 +16,8 @@
   import { epleyOneRm } from "../lib/calc/oneRm";
   import {
     getBodyWeight,
+    getBodyWeightAt,
+    getLatestBodyWeight,
     upsertBodyWeight,
     deleteBodyWeight,
   } from "../lib/db/bodyweights";
@@ -37,6 +39,10 @@
   let showPicker = $state(false);
   let exercises = $state<Exercise[]>([]);
   let bodyWeightInput = $state<string>("");
+  /** 読み込み時の値。これと一致しているなら blur で書き込まない (誤保存防止) */
+  let bodyWeightLoaded = $state<string>("");
+  /** その日の正式記録ではなく、過去最新値を流用しているかのフラグ */
+  let bodyWeightInferred = $state(false);
 
   $effect(() => {
     const unsub = exercisesStore.subscribe((list) => (exercises = list));
@@ -55,7 +61,20 @@
   async function reload() {
     sets = await getSetsForDate(performedOn);
     const bw = await getBodyWeight(performedOn);
-    bodyWeightInput = bw ? String(bw.weight_kg) : "";
+    if (bw) {
+      bodyWeightInput = String(bw.weight_kg);
+      bodyWeightLoaded = bodyWeightInput;
+      bodyWeightInferred = false;
+    } else {
+      // その日の体重がない場合は推定値を初期表示:
+      //   1. 直近 (≤ performedOn) の体重
+      //   2. なければ全期間の最新体重
+      const fallback =
+        (await getBodyWeightAt(performedOn)) ?? (await getLatestBodyWeight());
+      bodyWeightInput = fallback ? String(fallback.weight_kg) : "";
+      bodyWeightLoaded = bodyWeightInput; // 同値なら blur しても保存しない
+      bodyWeightInferred = !!fallback;
+    }
   }
 
   onMount(reload);
@@ -68,13 +87,19 @@
 
   async function saveBodyWeight() {
     const trimmed = bodyWeightInput.trim();
+    // 値が変わっていないなら何もしない (推定値の誤保存防止)
+    if (trimmed === bodyWeightLoaded) return;
     if (trimmed === "") {
       await deleteBodyWeight(performedOn);
+      bodyWeightLoaded = "";
+      bodyWeightInferred = false;
       return;
     }
     const v = parseFloat(trimmed);
     if (!Number.isFinite(v) || v <= 0) return;
     await upsertBodyWeight(performedOn, v);
+    bodyWeightLoaded = String(v);
+    bodyWeightInferred = false;
   }
 
   /** 種目ごとにグループ化 */
@@ -169,10 +194,16 @@
           step="0.1"
           min="0"
           placeholder="kg"
-          class="input w-20"
+          class="input w-20 {bodyWeightInferred ? 'text-slate-400 italic' : ''}"
           bind:value={bodyWeightInput}
           onblur={saveBodyWeight}
+          title={bodyWeightInferred
+            ? "この日の体重未記録のため直近値を表示中。変更すれば保存されます"
+            : ""}
         />
+        {#if bodyWeightInferred}
+          <span class="text-[10px] text-slate-400">前回値</span>
+        {/if}
       </div>
       <div class="flex items-center gap-2">
         <label class="label" for="date-input">日付</label>
