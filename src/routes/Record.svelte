@@ -1,6 +1,8 @@
 <script lang="ts">
   import { format } from "date-fns";
   import { onMount } from "svelte";
+  import { get } from "svelte/store";
+  import { querystring } from "svelte-spa-router";
   import type { Exercise, ExerciseDaySets, WorkoutSet } from "../lib/types";
   import { muscleLabel } from "../lib/types";
   import {
@@ -19,7 +21,18 @@
   } from "../lib/db/bodyweights";
   import ExerciseSelectModal from "../lib/components/ExerciseSelectModal.svelte";
 
-  let performedOn = $state(format(new Date(), "yyyy-MM-dd"));
+  /** URLのクエリストリングから ?date=YYYY-MM-DD を取り出す。なければ今日。 */
+  function dateFromQuery(qs: string | undefined): string {
+    if (qs) {
+      const params = new URLSearchParams(qs);
+      const d = params.get("date");
+      if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    }
+    return format(new Date(), "yyyy-MM-dd");
+  }
+
+  // 初回マウント時にURL ?date=... を反映 (履歴画面からの遷移用)
+  let performedOn = $state(dateFromQuery(get(querystring)));
   let sets = $state<WorkoutSet[]>([]);
   let showPicker = $state(false);
   let exercises = $state<Exercise[]>([]);
@@ -27,6 +40,15 @@
 
   $effect(() => {
     const unsub = exercisesStore.subscribe((list) => (exercises = list));
+    return unsub;
+  });
+
+  // URL ?date= の変化を監視 (記録画面が既にマウント済みのまま履歴から再遷移するケース対応)
+  $effect(() => {
+    const unsub = querystring.subscribe((qs) => {
+      const next = dateFromQuery(qs);
+      if (next !== performedOn) performedOn = next;
+    });
     return unsub;
   });
 

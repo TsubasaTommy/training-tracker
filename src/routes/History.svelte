@@ -60,8 +60,6 @@
 
   function gotoEdit(date: string) {
     push(`/?date=${date}`);
-    // シンプルにするため: 記録画面は常に今日起動し、日付入力で移動してもらう
-    // 実際に使う場合はquery対応を追加する
   }
 
   function formatDate(d: string): string {
