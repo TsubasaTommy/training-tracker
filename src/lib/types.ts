@@ -45,3 +45,19 @@ export interface ExerciseDaySets {
   exercise: Exercise;
   sets: WorkoutSet[];
 }
+
+/** 体重記録 (1日1件) */
+export interface BodyWeight {
+  id: number;
+  recorded_on: string; // YYYY-MM-DD
+  weight_kg: number;
+  created_at: string;
+}
+
+export type Sex = "male" | "female";
+
+/** 単一keyの設定保存 */
+export interface Setting {
+  key: string;
+  value: string;
+}

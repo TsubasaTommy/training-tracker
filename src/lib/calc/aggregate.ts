@@ -123,3 +123,79 @@ export function statsByExercise(sets: SetWithExercise[]): ExerciseStat[] {
 export function distinctDayCount(sets: SetWithExercise[]): number {
   return new Set(sets.map((s) => s.performed_on)).size;
 }
+
+/**
+ * ISO週番号 (年と週)。Schoenfeld流の「週あたりセット数」評価用。
+ * 週は月曜始まり。
+ */
+function isoWeekKey(date: string): string {
+  const d = new Date(date + "T00:00:00");
+  // ISO週: 木曜日のある週がその年の第◯週
+  const target = new Date(d.valueOf());
+  const dayNr = (d.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = new Date(target.getFullYear(), 0, 4);
+  const diff =
+    (target.valueOf() - firstThursday.valueOf()) / 86400000 / 7;
+  const week = 1 + Math.floor(diff);
+  return `${target.getFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+export interface WeeklyMuscleSets {
+  week: string; // 例 "2026-W15"
+  byMuscle: Record<string, number>;
+}
+
+/** 週ごと・部位ごとの実施セット数 */
+export function weeklySetsByMuscle(
+  sets: SetWithExercise[]
+): WeeklyMuscleSets[] {
+  const map = new Map<string, Map<string, number>>();
+  for (const s of sets) {
+    const wk = isoWeekKey(s.performed_on);
+    let inner = map.get(wk);
+    if (!inner) {
+      inner = new Map();
+      map.set(wk, inner);
+    }
+    inner.set(s.muscle_group, (inner.get(s.muscle_group) ?? 0) + 1);
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([week, inner]) => ({
+      week,
+      byMuscle: Object.fromEntries(inner),
+    }));
+}
+
+/** 期間内の「週あたり平均セット数」を部位ごとに算出 */
+export function avgWeeklySetsByMuscle(
+  sets: SetWithExercise[]
+): Record<string, number> {
+  const weekly = weeklySetsByMuscle(sets);
+  if (weekly.length === 0) return {};
+  const totals: Record<string, number> = {};
+  for (const w of weekly) {
+    for (const [mg, n] of Object.entries(w.byMuscle)) {
+      totals[mg] = (totals[mg] ?? 0) + n;
+    }
+  }
+  const avg: Record<string, number> = {};
+  for (const [mg, t] of Object.entries(totals)) {
+    avg[mg] = t / weekly.length;
+  }
+  return avg;
+}
+
+/**
+ * Schoenfeldガイドラインに基づく評価:
+ *   < 5: 不足、5-9: 維持、10-20: 最適、>20: 過剰の可能性
+ */
+export type VolumeStatus = "low" | "maintain" | "optimal" | "excess";
+
+export function evaluateWeeklyVolume(setsPerWeek: number): VolumeStatus {
+  if (setsPerWeek < 5) return "low";
+  if (setsPerWeek < 10) return "maintain";
+  if (setsPerWeek <= 20) return "optimal";
+  return "excess";
+}

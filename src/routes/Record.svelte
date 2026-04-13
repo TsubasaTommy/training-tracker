@@ -12,12 +12,18 @@
   } from "../lib/db/sets";
   import { exercisesStore } from "../lib/stores/exercises";
   import { epleyOneRm } from "../lib/calc/oneRm";
+  import {
+    getBodyWeight,
+    upsertBodyWeight,
+    deleteBodyWeight,
+  } from "../lib/db/bodyweights";
   import ExerciseSelectModal from "../lib/components/ExerciseSelectModal.svelte";
 
   let performedOn = $state(format(new Date(), "yyyy-MM-dd"));
   let sets = $state<WorkoutSet[]>([]);
   let showPicker = $state(false);
   let exercises = $state<Exercise[]>([]);
+  let bodyWeightInput = $state<string>("");
 
   $effect(() => {
     const unsub = exercisesStore.subscribe((list) => (exercises = list));
@@ -26,6 +32,8 @@
 
   async function reload() {
     sets = await getSetsForDate(performedOn);
+    const bw = await getBodyWeight(performedOn);
+    bodyWeightInput = bw ? String(bw.weight_kg) : "";
   }
 
   onMount(reload);
@@ -35,6 +43,17 @@
     performedOn;
     reload();
   });
+
+  async function saveBodyWeight() {
+    const trimmed = bodyWeightInput.trim();
+    if (trimmed === "") {
+      await deleteBodyWeight(performedOn);
+      return;
+    }
+    const v = parseFloat(trimmed);
+    if (!Number.isFinite(v) || v <= 0) return;
+    await upsertBodyWeight(performedOn, v);
+  }
 
   /** 種目ごとにグループ化 */
   const groups = $derived.by<ExerciseDaySets[]>(() => {
@@ -119,9 +138,24 @@
 <div class="flex flex-col gap-4">
   <header class="flex items-center justify-between">
     <h1 class="text-2xl font-bold">トレーニング記録</h1>
-    <div class="flex items-center gap-2">
-      <label class="label">日付</label>
-      <input type="date" class="input" bind:value={performedOn} />
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <label class="label" for="bw-input">体重</label>
+        <input
+          id="bw-input"
+          type="number"
+          step="0.1"
+          min="0"
+          placeholder="kg"
+          class="input w-20"
+          bind:value={bodyWeightInput}
+          onblur={saveBodyWeight}
+        />
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="label" for="date-input">日付</label>
+        <input id="date-input" type="date" class="input" bind:value={performedOn} />
+      </div>
     </div>
   </header>
 

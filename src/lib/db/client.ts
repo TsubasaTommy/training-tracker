@@ -1,24 +1,30 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { Exercise, WorkoutSet } from "../types";
+import type { BodyWeight, Exercise, Setting, WorkoutSet } from "../types";
 
 /**
  * IndexedDBスキーマ
- *  - exercises: 種目マスタ
- *  - sets: トレーニングセット (1行 = 1セット)
- *
- * インデックス:
- *  - sets.performed_on            … 日付検索
- *  - sets.[exercise_id+performed_on] … 種目別の期間検索
+ *  - exercises:   種目マスタ
+ *  - sets:        トレーニングセット (1行 = 1セット)
+ *  - bodyweights: 1日1件の体重記録
+ *  - settings:    keyValue型の設定 (sex 等)
  */
 export class TrainingDB extends Dexie {
   exercises!: EntityTable<Exercise, "id">;
   sets!: EntityTable<WorkoutSet, "id">;
+  bodyweights!: EntityTable<BodyWeight, "id">;
+  settings!: EntityTable<Setting, "key">;
 
   constructor() {
     super("training-tracker");
     this.version(1).stores({
       exercises: "++id, &name, muscle_group, archived",
       sets: "++id, performed_on, exercise_id, [exercise_id+performed_on]",
+    });
+    this.version(2).stores({
+      exercises: "++id, &name, muscle_group, archived",
+      sets: "++id, performed_on, exercise_id, [exercise_id+performed_on]",
+      bodyweights: "++id, &recorded_on",
+      settings: "&key",
     });
   }
 }
