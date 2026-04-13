@@ -49,8 +49,9 @@
     return unsub;
   });
 
-  // URL ?date= の変化を監視 (記録画面が既にマウント済みのまま履歴から再遷移するケース対応)
-  $effect(() => {
+  // URL ?date= の変化を監視 (履歴画面からの遷移用)。
+  // $effect だと performedOn が依存に入って循環するため onMount で1度だけ購読。
+  onMount(() => {
     const unsub = querystring.subscribe((qs) => {
       const next = dateFromQuery(qs);
       if (next !== performedOn) performedOn = next;
@@ -86,9 +87,7 @@
   });
 
   async function saveBodyWeight() {
-    const trimmed = bodyWeightInput.trim();
-    // 値が変わっていないなら何もしない (推定値の誤保存防止)
-    if (trimmed === bodyWeightLoaded) return;
+    const trimmed = String(bodyWeightInput ?? "").trim();
     if (trimmed === "") {
       await deleteBodyWeight(performedOn);
       bodyWeightLoaded = "";
@@ -190,12 +189,13 @@
         <label class="label" for="bw-input">体重</label>
         <input
           id="bw-input"
-          type="number"
-          step="0.1"
-          min="0"
+          type="text"
+          inputmode="decimal"
+          pattern="[0-9]*\.?[0-9]*"
           placeholder="kg"
           class="input w-20 {bodyWeightInferred ? 'text-slate-400 italic' : ''}"
           bind:value={bodyWeightInput}
+          oninput={() => (bodyWeightInferred = false)}
           onblur={saveBodyWeight}
           title={bodyWeightInferred
             ? "この日の体重未記録のため直近値を表示中。変更すれば保存されます"
